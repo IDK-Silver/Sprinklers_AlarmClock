@@ -7,6 +7,7 @@
 #include <Wire.h>
 #include <pt.h>
 #include <FirebaseESP32.h>
+#include <ESP32Tone.h>
 
 static LiquidCrystal_I2C lcd(0x27,16,2);
 static DS3231 time_clock;
@@ -25,6 +26,7 @@ void setup()
     PT_INIT(&pt_io);
     PT_INIT(&pt_sprinklers);
     Firebase.begin("", "");
+    //time_clock.setDateTime(__DATE__, "00:27:42");
 }
 
 static int ptUIDisplay(struct pt *pt)
@@ -54,7 +56,7 @@ static int ptIO(struct pt *pt)
         {   
             throwEdit = 0;
             io.runEditAlarmMode(throwEdit);
-            if (throwEdit == throwConfirm) { time_clock.setAlarm2(date.getDay(), date.getHour(), date.getMinute(), DS3231_MATCH_DY_H_M, false); }
+            if (throwEdit == throwConfirm) { time_clock.setAlarm2(date.getDay(), date.getHour(), date.getMinute(), DS3231_MATCH_H_M, false); }
             else if (throwEdit == throwAddHour) { date.addHour(); ui.displayEditModeUI(date);}
             else if (throwEdit == throwAddMin) { date.addMinute(); ui.displayEditModeUI(date);}
             
@@ -64,10 +66,54 @@ static int ptIO(struct pt *pt)
     PT_END(pt);
 }
 
+static int ptSprinklers(struct pt *pt)
+{
+    PT_BEGIN(pt);
+    static decltype(millis()) lastTime = 0;
+    while (true)
+    {   
+        PT_WAIT_UNTIL(pt, time_clock.isAlarm2());
+        lastTime = millis();
+        int throwEdit = 0;
+        tone(pin_Buzz, 835);
+        while (!io.isExitEditMode(throwEdit))
+        {
+            throwEdit = 0;
+            io.runEditAlarmMode(throwEdit);
+            if ((millis() - lastTime) >= 1000 * 5)
+            {
+                lcd.noBacklight();
+                for (int i = 0; i < 100; i++)
+                {
+                    
+                    io.runEditAlarmMode(throwEdit);
+                    digitalWrite(pin_Relay, HIGH);
+                    delay(10);
+                }
+                lcd.backlight();
+                for (int i = 0; i < 400; i++)
+                {
+                    
+                    io.runEditAlarmMode(throwEdit);
+                    digitalWrite(pin_Relay, LOW);
+                    delay(10);
+                }
+            }
+        }
+        noTone(pin_Buzz);
+        digitalWrite(pin_Relay, LOW);
+        
+    }
+    PT_END(pt);
+    
+}
+
 void loop() 
 {
     ptUIDisplay(&pt_ui);
     ptIO(&pt_io);
+    ptSprinklers(&pt_sprinklers);
+
 
 }
 

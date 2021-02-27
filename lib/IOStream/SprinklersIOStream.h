@@ -7,6 +7,9 @@
 #define btnAddHour  14
 #define btnAddMinute 12
 #define btnAlarmConfirm 13
+#define pin_Buzz 25
+#define pin_Relay 26
+
 
 #define throwAddHour 9
 #define throwAddMin 10

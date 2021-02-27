@@ -43,6 +43,7 @@ void SP_IOStream::runEditAlarmMode(int& throw_return)
 
 SP_IOStream::SP_IOStream(/* args */)
 {
+    pinMode(pin_Relay, OUTPUT);
 }
 
 SP_IOStream::~SP_IOStream()
