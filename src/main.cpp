@@ -15,7 +15,7 @@ static DS3231 time_clock;
 static AlarmDisplay ui(&lcd);
 static TimeSystemData date(&time_clock);
 static SP_IOStream io;
-static FirebaseData fireData;
+static FirebaseData fbdo;
 static LineMessage line("notify-api.line.me", "TaJHhN9mJz1UD4abr18Msal2q5T0jHULGzbAlhEqt9n");
 static struct pt pt_ui, pt_io, pt_sprinklers;
 
@@ -30,7 +30,11 @@ void setup()
     WiFi.begin("Syaro", "istheorderarabbit"); 																	//	Connect WiFi
 	while (WiFi.status() != WL_CONNECTED) { Serial.print("."); delay(500); } 									//	Waiting Connect
 	Serial.println("WiFi connected");	Serial.println("IP address: ");	Serial.println(WiFi.localIP());
-    // Firebase.begin("", "");  future
+    Firebase.begin("https://sprinklers-alarmclock-default-rtdb.firebaseio.com/", "oSC6YX0cvA3AlddtQdRH4HmTb4VyDMqmbGXu3w5L");\
+    FirebaseJson json;
+    json.set("IsAlarm", "false");
+    if (Firebase.updateNode(fbdo, "/", json)) {} else { Serial.println(fbdo.errorReason()); }
+
 }
 
 static int ptUIDisplay(struct pt *pt)
@@ -45,6 +49,7 @@ static int ptUIDisplay(struct pt *pt)
         PT_WAIT_UNTIL(pt, millis() >= lastTime + 1000);
     }
     PT_END(pt);
+    
 }
 
 static int ptIO(struct pt *pt)
@@ -60,10 +65,16 @@ static int ptIO(struct pt *pt)
         {   
             throwEdit = 0;
             io.runEditAlarmMode(throwEdit);
-            if (throwEdit == throwConfirm) { time_clock.setAlarm2(date.getDay(), date.getHour(), date.getMinute(), DS3231_MATCH_H_M, false); }
+            if (throwEdit == throwConfirm) 
+            { 
+                static FirebaseJson json;
+                json.set("Hour",String(date.getHour()));
+                json.set("Minute", String(date.getMinute()));
+                if (Firebase.updateNode(fbdo, "/", json)) {} else { Serial.println(fbdo.errorReason()); }
+                time_clock.setAlarm2(date.getDay(), date.getHour(), date.getMinute(), DS3231_MATCH_H_M, false); 
+            }
             else if (throwEdit == throwAddHour) { date.addHour(); ui.displayEditModeUI(date);}
             else if (throwEdit == throwAddMin) { date.addMinute(); ui.displayEditModeUI(date);}
-            
         }
         delay(1000);
     }
@@ -77,6 +88,7 @@ static int ptSprinklers(struct pt *pt)
     while (true)
     {   
         PT_WAIT_UNTIL(pt, time_clock.isAlarm2());
+        static FirebaseJson json;
         lastTime = millis();
         int throwEdit = 0;
         tone(pin_Buzz, 835);
@@ -93,7 +105,7 @@ static int ptSprinklers(struct pt *pt)
                     digitalWrite(pin_Relay, HIGH);
                     delay(10);
                 }
-                lcd.backlight();
+                //lcd.backlight();
                 for (int i = 0; i < 400; i++)
                 {
                     
@@ -105,11 +117,16 @@ static int ptSprinklers(struct pt *pt)
             if ((millis() - lastTime) >= 1000 * 15)
             {
                 line.setMessage("\n您的孩子還在睡覺");
+                json.set("IsAlarm", "true");
+                if (Firebase.updateNode(fbdo, "/", json)) {} else { Serial.println(fbdo.errorReason()); }
                 line.sendMessage();
             }
         }
+        lcd.backlight();
         noTone(pin_Buzz);
         digitalWrite(pin_Relay, LOW);
+        json.set("IsAlarm", "false");
+        if (Firebase.updateNode(fbdo, "/", json)) {} else { Serial.println(fbdo.errorReason()); }
     }
     PT_END(pt);
 }
@@ -119,5 +136,6 @@ void loop()
     ptUIDisplay(&pt_ui);
     ptIO(&pt_io);
     ptSprinklers(&pt_sprinklers);
+
 }
 
