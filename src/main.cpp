@@ -98,35 +98,40 @@ static int ptSprinklers(struct pt *pt)
             io.runEditAlarmMode(throwEdit);
             if ((millis() - lastTime) >= 1000 * 5)
             {
-                lcd.noBacklight();
+                lcd.backlight();
                 for (int i = 0; i < 100; i++)
                 {
                     io.runEditAlarmMode(throwEdit);
                     digitalWrite(pin_Relay, HIGH);
                     delay(10);
+                    if (throwEdit == throwExit || throwEdit == throwConfirm)
+                    break;
                 }
-                //lcd.backlight();
+                lcd.noBacklight();
                 for (int i = 0; i < 400; i++)
                 {
-                    
                     io.runEditAlarmMode(throwEdit);
                     digitalWrite(pin_Relay, LOW);
                     delay(10);
+                    if (throwEdit == throwExit || throwEdit == throwConfirm)
+                    break;
                 }
             }
             if ((millis() - lastTime) >= 1000 * 15)
             {
                 line.setMessage("\n您的孩子還在睡覺");
                 json.set("IsAlarm", "true");
-                if (Firebase.updateNode(fbdo, "/", json)) {} else { Serial.println(fbdo.errorReason()); }
+                json.set("Sec", String(millis() - lastTime));
+                
                 line.sendMessage();
             }
+            if (Firebase.updateNode(fbdo, "/", json)) {} else { Serial.println(fbdo.errorReason()); }
         }
+        json.set("IsAlarm", "false");
+        if (Firebase.updateNode(fbdo, "/", json)) {} else { Serial.println(fbdo.errorReason()); }
         lcd.backlight();
         noTone(pin_Buzz);
         digitalWrite(pin_Relay, LOW);
-        json.set("IsAlarm", "false");
-        if (Firebase.updateNode(fbdo, "/", json)) {} else { Serial.println(fbdo.errorReason()); }
     }
     PT_END(pt);
 }
