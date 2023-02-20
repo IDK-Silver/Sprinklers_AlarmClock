@@ -7,9 +7,10 @@
 #include <Wire.h>
 #include <pt.h>
 #include <ESP32Tone.h>
-#include <LineMessage.h>
+#include <LineNotifyESP32.h>
 #include <analogWrite.h>
 
+#define LINE_TOKEN "YOUR_LINE_NOTIFY_TOKEN"
 #define WIFI_TIMEOUT 30000
 
 static LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -17,7 +18,7 @@ static DS3231 time_clock;
 static AlarmDisplay ui(&lcd);
 static TimeSystemData date(&time_clock);
 static SP_IOStream io;
-static LineMessage line("notify-api.line.me", "TaJHhN9mJz1UD4abr18Msal2q5T0jHULGzbAlhEqt9n");
+static HTTPClientESP32Ex http;
 static struct pt pt_ui, pt_io, pt_sprinklers;
 
 void setup()
@@ -53,6 +54,7 @@ void setup()
         /* print ipifo */
         if (WiFi.status() == WL_CONNECTED)
         {
+            lineNotify.init(LINE_TOKEN);
             Serial.println("WiFi connected");
             Serial.println("IP address: ");
             Serial.println(WiFi.localIP());
@@ -147,8 +149,8 @@ static int ptSprinklers(struct pt *pt)
             }
             if ((millis() - lastTime) >= 1000 * 20)
             {
-                line.setMessage("\n您的孩子還在睡覺");
-                line.sendMessage();
+                lineNotify.sendLineMessage(http, "\n您的孩子還在睡覺");
+                lineNotify.sendLineMessage(http, "");
             }
         }
 
